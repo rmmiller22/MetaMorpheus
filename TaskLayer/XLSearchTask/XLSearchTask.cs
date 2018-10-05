@@ -250,7 +250,7 @@ namespace TaskLayer
                     cumulative_target++;
 
                 double temp_q_value = (double)cumulative_decoy / cumulative_target;
-                item1.SetFdrValues(cumulative_target, cumulative_decoy, temp_q_value, 0, 0, 0, 0, 0, 0, false);
+                item1.SetFdrValues(cumulative_target, cumulative_decoy, temp_q_value, 0, 0, 0, 0, 0);
             }
 
             double min_q_value = double.PositiveInfinity;
@@ -293,7 +293,7 @@ namespace TaskLayer
                     cumulative_target++;
 
                 double temp_q_value = (double)cumulative_decoy / cumulative_target;
-                item1.SetFdrValues(cumulative_target, cumulative_decoy, temp_q_value, 0, 0, 0, 0, 0, 0, false);
+                item1.SetFdrValues(cumulative_target, cumulative_decoy, temp_q_value, 0, 0, 0, 0, 0);
                 //item2.SetFdrValues(cumulative_target, cumulative_decoy, temp_q_value, 0, 0, 0);
             }
 

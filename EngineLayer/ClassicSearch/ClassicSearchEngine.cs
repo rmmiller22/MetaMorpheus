@@ -7,6 +7,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace EngineLayer.ClassicSearch
@@ -46,6 +47,8 @@ namespace EngineLayer.ClassicSearch
                 myLocks[i] = new object();
             }
 
+            var myCounts = new int[PeptideSpectralMatches.Length];
+
             Status("Performing classic search...");
 
             if (Proteins.Any())
@@ -73,15 +76,16 @@ namespace EngineLayer.ClassicSearch
                                 double thisScore = CalculatePeptideScore(scan.TheScan.TheScan, matchedIons, 0);
 
                                 bool meetsScoreCutoff = thisScore >= commonParameters.ScoreCutoff;
+                                bool scoreImprovement = PeptideSpectralMatches[scan.ScanIndex] == null || (thisScore - PeptideSpectralMatches[scan.ScanIndex].RunnerUpScore) > -PeptideSpectralMatch.ToleranceForScoreDifferentiation;
 
                                 // this is thread-safe because even if the score improves from another thread writing to this PSM,
                                 // the lock combined with AddOrReplace method will ensure thread safety
-                                if (meetsScoreCutoff || commonParameters.CalculateEValue)
+                                if (meetsScoreCutoff && scoreImprovement)
                                 {
                                     // valid hit (met the cutoff score); lock the scan to prevent other threads from accessing it
                                     lock (myLocks[scan.ScanIndex])
                                     {
-                                        bool scoreImprovement = PeptideSpectralMatches[scan.ScanIndex] == null || (thisScore - PeptideSpectralMatches[scan.ScanIndex].RunnerUpScore) > -PeptideSpectralMatch.ToleranceForScoreDifferentiation;
+                                        scoreImprovement = PeptideSpectralMatches[scan.ScanIndex] == null || (thisScore - PeptideSpectralMatches[scan.ScanIndex].RunnerUpScore) > -PeptideSpectralMatch.ToleranceForScoreDifferentiation;
 
                                         if (scoreImprovement)
                                         {
@@ -94,13 +98,10 @@ namespace EngineLayer.ClassicSearch
                                                 PeptideSpectralMatches[scan.ScanIndex].AddOrReplace(peptide, thisScore, scan.Notch, commonParameters.ReportAllAmbiguity, matchedIons);
                                             }
                                         }
-
-                                        if (commonParameters.CalculateEValue)
-                                        {
-                                            PeptideSpectralMatches[scan.ScanIndex].AllScores.Add(thisScore);
-                                        }
                                     }
                                 }
+                                
+                                Interlocked.Increment(ref myCounts[scan.ScanIndex]);
                             }
                         }
 
@@ -117,15 +118,11 @@ namespace EngineLayer.ClassicSearch
                 });
             }
 
-            // remove peptides below the score cutoff that were stored to calculate expectation values
-            if (commonParameters.CalculateEValue)
+            for (int i = 0; i < PeptideSpectralMatches.Length; i++)
             {
-                for (int i = 0; i < PeptideSpectralMatches.Length; i++)
+                if (PeptideSpectralMatches[i] != null)
                 {
-                    if (PeptideSpectralMatches[i] != null && PeptideSpectralMatches[i].Score < commonParameters.ScoreCutoff)
-                    {
-                        PeptideSpectralMatches[i] = null;
-                    }
+                    PeptideSpectralMatches[i].Counts = myCounts[i];
                 }
             }
             

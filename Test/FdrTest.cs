@@ -56,9 +56,8 @@ namespace Test
             {
                 psm.ResolveAllAmbiguities();
             }
-
-
-            CommonParameters cp = new CommonParameters(calculateEValue: true);
+            
+            CommonParameters cp = new CommonParameters();
 
             FdrAnalysisEngine fdr = new FdrAnalysisEngine(newPsms, searchModes.NumNotches, cp, nestedIds);
 

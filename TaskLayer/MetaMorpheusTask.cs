@@ -13,7 +13,10 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
+using EngineLayer.FdrAnalysis;
 using UsefulProteomicsDatabases;
+using System.Collections.Concurrent;
 
 namespace TaskLayer
 {
@@ -381,6 +384,38 @@ namespace TaskLayer
                     output.WriteLine(psm.ToString(modstoWritePruned));
                 }
             }
+        }
+
+        protected void CalculateEValues(List<PeptideSpectralMatch> nonNullPsms, CommonParameters commonParameters, MsDataFile datafile, List<string> nestedIds)
+        {
+            ReportProgress(new ProgressEventArgs(0, "Calculating e-values... ", nestedIds));
+            double psmsSearched = 0;
+            int oldPercentProgress = 0;
+
+            Parallel.ForEach(Partitioner.Create(0, nonNullPsms.Count),
+                new ParallelOptions { MaxDegreeOfParallelism = commonParameters.MaxThreadsToUsePerFile },
+                (partitionRange, loopState) =>
+                {
+                    Random r = new Random();
+
+                    for (int i = partitionRange.Item1; i < partitionRange.Item2; i++)
+                    {
+                        var psm = nonNullPsms[i];
+                        FdrAnalysisEngine.CalculateEValue(psm, datafile.GetOneBasedScan(psm.ScanNumber), commonParameters, r, 100, psm.ScanPrecursorMass);
+
+                        // report progress
+                        psmsSearched++;
+                        var percentProgress = (int)((psmsSearched / nonNullPsms.Count) * 100);
+
+                        if (percentProgress > oldPercentProgress)
+                        {
+                            oldPercentProgress = percentProgress;
+                            ReportProgress(new ProgressEventArgs(percentProgress, "Calculating e-values... ", nestedIds));
+                        }
+                    }
+                });
+
+            ReportProgress(new ProgressEventArgs(100, "Done!", nestedIds));
         }
 
         protected void ReportProgress(ProgressEventArgs v)

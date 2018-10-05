@@ -41,8 +41,6 @@ namespace EngineLayer.ModernSearch
             ReportProgress(new ProgressEventArgs(oldPercentProgress, "Performing modern search... " + CurrentPartition + "/" + commonParameters.TotalPartitions, nestedIds));
 
             byte byteScoreCutoff = (byte)commonParameters.ScoreCutoff;
-            if (commonParameters.CalculateEValue)
-                byteScoreCutoff = 1;
 
             Parallel.ForEach(Partitioner.Create(0, ListOfSortedMs2Scans.Length), new ParallelOptions { MaxDegreeOfParallelism = commonParameters.MaxThreadsToUsePerFile }, (range, loopState) =>
             {
@@ -100,15 +98,14 @@ namespace EngineLayer.ModernSearch
                         List<Product> peptideTheorProducts = peptide.Fragment(commonParameters.DissociationType, FragmentationTerminus.Both).ToList();
 
                         List<MatchedFragmentIon> matchedIons = MatchFragmentIons(scan.TheScan.MassSpectrum, peptideTheorProducts, commonParameters, scan.PrecursorMass);
-
-
+                        
                         double thisScore = CalculatePeptideScore(scan.TheScan, matchedIons, 0);
                         int notch = MassDiffAcceptor.Accepts(scan.PrecursorMass, peptide.MonoisotopicMass);
 
                         bool meetsScoreCutoff = thisScore >= commonParameters.ScoreCutoff;
                         bool scoreImprovement = PeptideSpectralMatches[i] == null || (thisScore - PeptideSpectralMatches[i].RunnerUpScore) > -PeptideSpectralMatch.ToleranceForScoreDifferentiation;
 
-                        if (meetsScoreCutoff && scoreImprovement || commonParameters.CalculateEValue)
+                        if (meetsScoreCutoff && scoreImprovement)
                         {
                             if (PeptideSpectralMatches[i] == null)
                             {
@@ -117,11 +114,6 @@ namespace EngineLayer.ModernSearch
                             else
                             {
                                 PeptideSpectralMatches[i].AddOrReplace(peptide, thisScore, notch, commonParameters.ReportAllAmbiguity, matchedIons);
-                            }
-
-                            if (commonParameters.CalculateEValue)
-                            {
-                                PeptideSpectralMatches[i].AllScores.Add(thisScore);
                             }
                         }
                     }
@@ -137,19 +129,7 @@ namespace EngineLayer.ModernSearch
                     }
                 }
             });
-
-            // remove peptides below the score cutoff that were stored to calculate expectation values
-            if (commonParameters.CalculateEValue)
-            {
-                for (int i = 0; i < PeptideSpectralMatches.Length; i++)
-                {
-                    if (PeptideSpectralMatches[i] != null && PeptideSpectralMatches[i].Score < commonParameters.ScoreCutoff)
-                    {
-                        PeptideSpectralMatches[i] = null;
-                    }
-                }
-            }
-
+            
             foreach (PeptideSpectralMatch psm in PeptideSpectralMatches.Where(p => p != null))
             {
                 psm.ResolveAllAmbiguities();

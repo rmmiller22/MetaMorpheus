@@ -57,7 +57,7 @@ namespace Test
 
             List<PeptideSpectralMatch> psms = new List<PeptideSpectralMatch> { psmPEPR_T, psmPEPR_A, psmABCK_T };
             psms.ForEach(j => j.ResolveAllAmbiguities());
-            psms.ForEach(j => j.SetFdrValues(1, 0, 0, 1, 0, 0, double.NaN, double.NaN, double.NaN, false));
+            psms.ForEach(j => j.SetFdrValues(1, 0, 0, 1, 0, 0, double.NaN, double.NaN));
 
             HashSet<DigestionParams> digestionParamsList = new HashSet<DigestionParams>();
             digestionParamsList.Add(digestionParams_Tryp);
@@ -142,7 +142,7 @@ namespace Test
             List<PeptideSpectralMatch> psms = new List<PeptideSpectralMatch>() { psmABC_Dp1, psmABC_Dp2, psmEFG_Dp1 };
 
             psms.ForEach(p => p.ResolveAllAmbiguities());
-            psms.ForEach(p => p.SetFdrValues(1, 0, 0, 1, 0, 0, double.NaN, double.NaN, double.NaN, false));
+            psms.ForEach(p => p.SetFdrValues(1, 0, 0, 1, 0, 0, double.NaN, double.NaN));
 
             HashSet<DigestionParams> digestionParamsList = new HashSet<DigestionParams>();
             digestionParamsList.Add(digestionParams);
@@ -222,7 +222,7 @@ namespace Test
             List<PeptideSpectralMatch> psms = new List<PeptideSpectralMatch>() { psmABC_Dp1, psmABC_Dp2, psmEFGABC_Dp1, psmXYZ_Dp1 };
 
             psms.ForEach(p => p.ResolveAllAmbiguities());
-            psms.ForEach(p => p.SetFdrValues(1, 0, 0, 1, 0, 0, double.NaN, double.NaN, double.NaN, false));
+            psms.ForEach(p => p.SetFdrValues(1, 0, 0, 1, 0, 0, double.NaN, double.NaN));
 
             HashSet<DigestionParams> digestionParamsList = new HashSet<DigestionParams>();
             digestionParamsList.Add(digestionParams);
@@ -320,7 +320,7 @@ namespace Test
             List<PeptideSpectralMatch> psms = new List<PeptideSpectralMatch>() { psmABC_Dp1, psmABC_Dp2, psmEFG_Dp1, psmEFG_Dp2 };
 
             psms.ForEach(h => h.ResolveAllAmbiguities());
-            psms.ForEach(h => h.SetFdrValues(1, 0, 0, 1, 0, 0, double.NaN, double.NaN, double.NaN, false));
+            psms.ForEach(h => h.SetFdrValues(1, 0, 0, 1, 0, 0, double.NaN, double.NaN));
 
             ProteinParsimonyEngine ppe = new ProteinParsimonyEngine(psms, false, new CommonParameters(), null);
             var proteinAnalysisResults = (ProteinParsimonyResults)ppe.Run();
@@ -409,7 +409,7 @@ namespace Test
                 {
                     psms.Add(new PeptideSpectralMatch(pwsm, 0, 10, 0, scan, digestionParams2, new List<MatchedFragmentIon>()));
                 }
-                psms.Last().SetFdrValues(0, 0, 0, 0, 0, 0, 0, 0, 0, false);
+                psms.Last().SetFdrValues(0, 0, 0, 0, 0, 0, 0, 0);
                 psms.Last().ResolveAllAmbiguities();
             }
 
@@ -477,7 +477,7 @@ namespace Test
             List<PeptideSpectralMatch> psms = new List<PeptideSpectralMatch>() { psmABC_Dp1, psmABC_Dp2 };
 
             psms.ForEach(h => h.ResolveAllAmbiguities());
-            psms.ForEach(h => h.SetFdrValues(1, 0, 0, 1, 0, 0, double.NaN, double.NaN, double.NaN, false));
+            psms.ForEach(h => h.SetFdrValues(1, 0, 0, 1, 0, 0, double.NaN, double.NaN));
 
             ProteinParsimonyEngine ppe = new ProteinParsimonyEngine(psms, false, new CommonParameters(), null);
             var proteinAnalysisResults = (ProteinParsimonyResults)ppe.Run();
@@ -567,7 +567,7 @@ namespace Test
                 {
                     psms.Add(new PeptideSpectralMatch(pwsm, 0, 10, 0, scan, digestionParams, new List<MatchedFragmentIon>()));
                 }
-                psms.Last().SetFdrValues(0, 0, 0, 0, 0, 0, 0, 0, 0, false);
+                psms.Last().SetFdrValues(0, 0, 0, 0, 0, 0, 0, 0);
                 psms.Last().ResolveAllAmbiguities();
             }
 
@@ -661,27 +661,27 @@ namespace Test
                 switch (i)
                 {
                     case 0:
-                        psms.Last().SetFdrValues(0, 0, goodFdr, 0, 0, badFdr, 0, 0, 0, false);
+                        psms.Last().SetFdrValues(0, 0, goodFdr, 0, 0, badFdr, 0, 0);
                         break;
 
                     case 1:
-                        psms.Last().SetFdrValues(0, 0, badFdr, 0, 0, goodFdr, 0, 0, 0, false);
+                        psms.Last().SetFdrValues(0, 0, badFdr, 0, 0, goodFdr, 0, 0);
                         break;
 
                     case 2:
-                        psms.Last().SetFdrValues(0, 0, goodFdr, 0, 0, goodFdr, 0, 0, 0, false);
+                        psms.Last().SetFdrValues(0, 0, goodFdr, 0, 0, goodFdr, 0, 0);
                         break;
 
                     case 3:
-                        psms.Last().SetFdrValues(0, 0, badFdr, 0, 0, badFdr, 0, 0, 0, false);
+                        psms.Last().SetFdrValues(0, 0, badFdr, 0, 0, badFdr, 0, 0);
                         break;
 
                     case 4:
-                        psms.Last().SetFdrValues(0, 0, goodFdr, 0, 0, goodFdr, 0, 0, 0, false);
+                        psms.Last().SetFdrValues(0, 0, goodFdr, 0, 0, goodFdr, 0, 0);
                         break;
 
                     case 5:
-                        psms.Last().SetFdrValues(0, 0, goodFdr, 0, 0, goodFdr, 0, 0, 0, false);
+                        psms.Last().SetFdrValues(0, 0, goodFdr, 0, 0, goodFdr, 0, 0);
                         break;
                 }
                 psms.Last().ResolveAllAmbiguities();
@@ -696,7 +696,7 @@ namespace Test
 
             List<ProteinGroup> proteinGroups = results.SortedAndScoredProteinGroups;
 
-            psms.ElementAt(5).SetFdrValues(0, 0, goodFdr, 0, 0, goodFdr, 0, 0, 0, false);
+            psms.ElementAt(5).SetFdrValues(0, 0, goodFdr, 0, 0, goodFdr, 0, 0);
 
             //this iscopy of code that filteres psms in PostSearch Analysis Task
             var fdrFilteredPsms = new List<PeptideSpectralMatch>();
@@ -814,7 +814,7 @@ namespace Test
 
             List<PeptideSpectralMatch> psms = new List<PeptideSpectralMatch> { psmABC_Alpha, psmABC_Beta, psmEFG_Beta };
             psms.ForEach(j => j.ResolveAllAmbiguities());
-            psms.ForEach(j => j.SetFdrValues(1, 0, 0, 1, 0, 0, double.NaN, double.NaN, double.NaN, false));
+            psms.ForEach(j => j.SetFdrValues(1, 0, 0, 1, 0, 0, double.NaN, double.NaN));
 
             HashSet<DigestionParams> digestionParamsList = new HashSet<DigestionParams>();
             digestionParamsList.Add(digestionParams);
@@ -889,7 +889,7 @@ namespace Test
 
             List<PeptideSpectralMatch> psms = new List<PeptideSpectralMatch> { psmABCK_T, psmABCK_L, psmXYZK_T, psmXYZK_L };
             psms.ForEach(j => j.ResolveAllAmbiguities());
-            psms.ForEach(j => j.SetFdrValues(1, 0, 0, 1, 0, 0, double.NaN, double.NaN, double.NaN, false));
+            psms.ForEach(j => j.SetFdrValues(1, 0, 0, 1, 0, 0, double.NaN, double.NaN));
 
             HashSet<DigestionParams> digestionParamsList = new HashSet<DigestionParams>();
             digestionParamsList.Add(digestionParams);
@@ -959,7 +959,7 @@ namespace Test
             
             List<PeptideSpectralMatch> psms = new List<PeptideSpectralMatch> { psmABC_Dash, psmABC_G };
             psms.ForEach(j => j.ResolveAllAmbiguities());
-            psms.ForEach(j => j.SetFdrValues(1, 0, 0, 1, 0, 0, double.NaN, double.NaN, double.NaN, false));
+            psms.ForEach(j => j.SetFdrValues(1, 0, 0, 1, 0, 0, double.NaN, double.NaN));
 
             HashSet<DigestionParams> digestionParamsList = new HashSet<DigestionParams>();
             digestionParamsList.Add(digestionParams);
