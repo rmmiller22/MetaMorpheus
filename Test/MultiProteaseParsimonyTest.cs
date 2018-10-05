@@ -18,7 +18,7 @@ namespace Test
     public static class MultiProteaseParsimonyTest
     {
         /// <summary>
-        /// three proteins proteases will be trypsina and argC two proteins will produce the peptide by both arge C and trypsin (cleave at R)
+        /// three proteins proteases will be trypsina and argC two proteins will produce the peptide by both arg C and trypsin (cleave at R)
         /// the  last one can only make it by trypsin. There is unique peptide also for the trypsin only protein. 
         /// </summary>
         [Test]
