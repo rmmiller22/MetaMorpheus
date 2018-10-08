@@ -56,7 +56,7 @@ namespace EngineLayer.FdrAnalysis
             // maximum likelihood estimate is the average of the scores without the target hit
             double maximumLikelihoodEstimate = randomScores.Average();
 
-            double pValue = 1 - SpecialFunctions.GammaLowerRegularized(maximumLikelihoodEstimate, psm.Score);
+            double pValue = SpecialFunctions.GammaLowerRegularized(maximumLikelihoodEstimate, psm.Score);
             
             //double eValue = psm.Counts * (1 - Math.Pow(pValue, psm.Counts));
             double adjustedPValue = 1 - Math.Pow(pValue, psm.Counts);
@@ -132,9 +132,13 @@ namespace EngineLayer.FdrAnalysis
                 //    cumulativeTargetPerNotch[notch]++;
                 //}
                 cumulativeDecoy += psm.FdrInfo.EValue;
+                cumulativeDecoyPerNotch[notch] += psm.FdrInfo.EValue;
 
-                double qValue = cumulativeDecoy / cumulativeTarget;
-                double qValueNotch = cumulativeDecoyPerNotch[notch] / cumulativeTargetPerNotch[notch];
+                cumulativeTarget += (1 - psm.FdrInfo.EValue);
+                cumulativeTargetPerNotch[notch] += (1 - psm.FdrInfo.EValue);
+
+                double qValue = cumulativeDecoy / (cumulativeDecoy + cumulativeTarget);
+                double qValueNotch = cumulativeDecoyPerNotch[notch] / (cumulativeDecoyPerNotch[notch] + cumulativeTargetPerNotch[notch]);
 
                 if (qValue > 1)
                 {
@@ -213,7 +217,7 @@ namespace EngineLayer.FdrAnalysis
         private static IEnumerable<PeptideWithSetModifications> GetShuffledPeptides(PeptideWithSetModifications originalPeptide, int numShuffledPeptidesToGenerate, Random random)
         {
             string[] residues;
-
+            
             if (originalPeptide.AllModsOneIsNterminus.Any())
             {
                 residues = SplitPeptideIntoModifiedResidues(originalPeptide);
@@ -221,6 +225,14 @@ namespace EngineLayer.FdrAnalysis
             else
             {
                 residues = originalPeptide.BaseSequence.Select(p => p.ToString()).ToArray();
+            }
+
+            int shuffleStartIndex = 0;
+            int shuffleEndIndex = residues.Length - 1;
+
+            if (originalPeptide.AllModsOneIsNterminus.ContainsKey(1))
+            {
+                shuffleEndIndex = 1;
             }
 
             for (int i = 0; i < numShuffledPeptidesToGenerate; i++)
@@ -231,10 +243,10 @@ namespace EngineLayer.FdrAnalysis
                 {
                     // Knuth shuffle algorithm
                     // don't shuffle N or C terminal residues
-                    for (int t = 1; t < residues.Length - 1; t++)
+                    for (int t = shuffleStartIndex; t < shuffleEndIndex; t++)
                     {
                         string tmp = residues[t];
-                        int r = random.Next(t, residues.Length - 1);
+                        int r = random.Next(t, shuffleEndIndex);
                         residues[t] = residues[r];
                         residues[r] = tmp;
                     }
