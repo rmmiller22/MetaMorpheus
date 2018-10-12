@@ -127,7 +127,7 @@ namespace Test
             var newPsms = possiblePsms.Where(p => p != null).ToList();
             foreach (var item in newPsms)
             {
-                item.SetFdrValues(0, 0, 0, 0, 0, 0, 0, 0, 0, false);
+                item.SetFdrValues(0, 0, 0, 0, 0, 0, 0, 0);
             }
 
             //Test newPsms

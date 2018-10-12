@@ -32,7 +32,6 @@ namespace EngineLayer
             ScanPrecursorCharge = scan.PrecursorCharge;
             ScanPrecursorMonoisotopicPeakMz = scan.PrecursorMonoisotopicPeakMz;
             ScanPrecursorMass = scan.PrecursorMass;
-            AllScores = new List<double>();
             DigestionParams = digestionParams;
             PeptidesToMatchingFragments = new Dictionary<PeptideWithSetModifications, List<MatchedFragmentIon>>();
 
@@ -74,8 +73,8 @@ namespace EngineLayer
         public bool IsDecoy { get; private set; }
         public bool IsContaminant { get; private set; }
         public readonly DigestionParams DigestionParams;
-        public List<double> AllScores { get; set; }
         public Dictionary<PeptideWithSetModifications, List<MatchedFragmentIon>> PeptidesToMatchingFragments { get; private set; }
+        public int Counts;
 
         public IEnumerable<(int Notch, PeptideWithSetModifications Peptide)> BestMatchingPeptides
         {
@@ -160,7 +159,7 @@ namespace EngineLayer
             DeltaScore = Score - Math.Max(RunnerUpScore, scoreCutoff);
         }
 
-        public void SetFdrValues(int cumulativeTarget, int cumulativeDecoy, double tempQValue, int cumulativeTargetNotch, int cumulativeDecoyNotch, double tempQValueNotch, double maximumLikelihood, double eValue, double eScore, bool calculateEValue)
+        public void SetFdrValues(int cumulativeTarget, int cumulativeDecoy, double tempQValue, int cumulativeTargetNotch, int cumulativeDecoyNotch, double tempQValueNotch, double eValue, double eScore)
         {
             FdrInfo = new FdrInfo
             {
@@ -170,10 +169,8 @@ namespace EngineLayer
                 CumulativeTargetNotch = cumulativeTargetNotch,
                 CumulativeDecoyNotch = cumulativeDecoyNotch,
                 QValueNotch = tempQValueNotch,
-                MaximumLikelihood = maximumLikelihood,
                 EScore = eScore,
-                EValue = eValue,
-                CalculateEValue = calculateEValue
+                EValue = eValue
             };
         }
 
@@ -423,10 +420,10 @@ namespace EngineLayer
 
             string allScores = " ";
             string theoreticalsSearched = " ";
-            if (!pepWithModsIsNull && psm.FdrInfo != null && psm.FdrInfo.CalculateEValue)
+            if (!pepWithModsIsNull && psm.FdrInfo != null)
             {
-                allScores = string.Join(";", psm.AllScores.Select(p => p.ToString("F2", CultureInfo.InvariantCulture)));
-                theoreticalsSearched = psm.AllScores.Count.ToString();
+                allScores = "";
+                theoreticalsSearched = psm.Counts.ToString();
             }
 
             s["All Scores"] = allScores;
@@ -554,11 +551,8 @@ namespace EngineLayer
                 cumulativeTargetNotch = peptide.FdrInfo.CumulativeTargetNotch.ToString(CultureInfo.InvariantCulture);
                 cumulativeDecoyNotch = peptide.FdrInfo.CumulativeDecoyNotch.ToString(CultureInfo.InvariantCulture);
                 qValueNotch = peptide.FdrInfo.QValueNotch.ToString("F6", CultureInfo.InvariantCulture);
-                if (peptide.FdrInfo.CalculateEValue)
-                {
-                    eValue = peptide.FdrInfo.EValue.ToString("F6", CultureInfo.InvariantCulture);
-                    eScore = peptide.FdrInfo.EScore.ToString("F6", CultureInfo.InvariantCulture);
-                }
+                eValue = peptide.FdrInfo.EValue.ToString("F6", CultureInfo.InvariantCulture);
+                eScore = peptide.FdrInfo.EScore.ToString("F6", CultureInfo.InvariantCulture);
             }
             s["Cumulative Target"] = cumulativeTarget;
             s["Cumulative Decoy"] = cumulativeDecoy;
