@@ -148,9 +148,10 @@ namespace EngineLayer
                             {
                                 foreach (var proteinInfo in peptideInProteinInfo)
                                 {
+                                    var originalPep = psm.BestMatchingPeptides.First().Peptide;
                                     var pep = new PeptideWithSetModifications(proteinInfo.Item1, proteinInfo.Item2, proteinInfo.Item3, proteinInfo.Item4,
-                                        psm.BestMatchingPeptides.First().Peptide.PeptideDescription, proteinInfo.Item5, psm.BestMatchingPeptides.First().Peptide.AllModsOneIsNterminus,
-                                        psm.BestMatchingPeptides.First().Peptide.NumFixedMods);
+                                        originalPep.CleavageSpecificityForFdrCategory, originalPep.PeptideDescription, proteinInfo.Item5, originalPep.AllModsOneIsNterminus,
+                                        originalPep.NumFixedMods);
                                     _fdrFilteredPeptides.Add(pep);
                                     psm.AddProteinMatch((proteinInfo.Item6, pep));
                                 }
@@ -300,7 +301,15 @@ namespace EngineLayer
                     // the protein with the most total peptide sequences wins in this case (doesn't matter if parsimony has grabbed them or not)
                     if (possibleBestProteinList.Count > 1)
                     {
-                        bestProtein = possibleBestProteinList.OrderByDescending(kvp => proteinToPepSeqMatch[kvp.Key].Count).First().Key;
+                        int highestNumTotalPep = proteinToPepSeqMatch[bestProtein].Count;
+                        foreach (var kvp in possibleBestProteinList)
+                        {
+                            if (proteinToPepSeqMatch[kvp.Key].Count > highestNumTotalPep)
+                            {
+                                highestNumTotalPep = proteinToPepSeqMatch[kvp.Key].Count;
+                                bestProtein = kvp.Key;
+                            }
+                        }
                     }
 
                     parsimoniousProteinList.Add(bestProtein);
