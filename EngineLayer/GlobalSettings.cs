@@ -1,11 +1,8 @@
 ﻿namespace EngineLayer
 {
-    public class GlobalSettings : IGlobalSettings
+    public class GlobalSettings
     {
-        #region Public Properties
-
         public bool WriteExcelCompatibleTSVs { get; set; }
-
-        #endregion Public Properties
+        public bool UserHasAgreedToThermoRawFileReaderLicence { get; set; }
     }
 }

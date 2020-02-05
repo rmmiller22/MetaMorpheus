@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Windows;
 
 namespace MetaMorpheusGUI
@@ -15,18 +14,12 @@ namespace MetaMorpheusGUI
     /// </summary>
     public partial class MetaUpdater : Window
     {
-        #region Public Constructors
-
         public MetaUpdater()
         {
             InitializeComponent();
             lbl.Text = "A newer version: " + MainWindow.NewestKnownVersion + " is available!";
             ReleaseHandler();
         }
-
-        #endregion Public Constructors
-
-        #region Public Methods
 
         public (int, int, int) GetVersionNumber(string VersionNode)
         {
@@ -41,10 +34,6 @@ namespace MetaMorpheusGUI
                 return (0, 0, 0);
             }
         }
-
-        #endregion Public Methods
-
-        #region Private Methods
 
         private void InstallerClicked(object sender, RoutedEventArgs e)
         {
@@ -88,13 +77,27 @@ namespace MetaMorpheusGUI
                             (checkVersion.Item1 == currV.Item1 && checkVersion.Item2 < currV.Item2) ||
                             (checkVersion.Item1 == currV.Item1 && checkVersion.Item2 == currV.Item2 && checkVersion.Item3 <= currV.Item3))
                             break;
-                        allVersionsText.AppendLine(obj.SelectToken("tag_name").ToString());
-                        allVersionsText.AppendLine(obj.SelectToken("body").ToString());
+                        string body = new MarkdownSharp.Markdown().Transform(obj.SelectToken("body").ToString());
+                        allVersionsText.AppendLine("<font face=\"Arial\" size=2>");
+                        allVersionsText.AppendLine("<h3>" + obj.SelectToken("tag_name").ToString() + "</h3>");
+                        allVersionsText.AppendLine(body);
                         allVersionsText.AppendLine();
+                        allVersionsText.AppendLine("</font>");
                     }
-                    releases.Text = allVersionsText.ToString();
+                    releases.NavigateToString(allVersionsText.ToString());
+                    releases.Navigating += Releases_Navigating;
                 }
             }
+        }
+
+
+        public void Releases_Navigating(object sender, System.Windows.Navigation.NavigatingCancelEventArgs e)
+        {
+            //cancel the current event
+            e.Cancel = true;
+
+            //this opens the URL in the user's default browser
+            GlobalVariables.StartProcess(e.Uri.ToString());
         }
 
         private void PortableClicked(object semder, RoutedEventArgs e)
@@ -124,7 +127,5 @@ namespace MetaMorpheusGUI
         {
             DialogResult = false;
         }
-
-        #endregion Private Methods
     }
 }

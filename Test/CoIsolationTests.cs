@@ -5,6 +5,9 @@ using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
 using Proteomics;
+using Proteomics.Fragmentation;
+using Proteomics.ProteolyticDigestion;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using TaskLayer;
@@ -14,23 +17,24 @@ namespace Test
     [TestFixture]
     public static class CoIsolationTests
     {
-        #region Public Methods
-
         [Test]
         public static void TestCoIsolation()
         {
-            Protease protease = new Protease("CustProtease", new List<string> { "K" }, new List<string>(), TerminusType.C, CleavageSpecificity.Full, null, null, null);
-            GlobalVariables.ProteaseDictionary.Add(protease.Name, protease);
-            CommonParameters CommonParameters = new CommonParameters(ScoreCutoff: 1, DeconvolutionIntensityRatio: 50, DigestionParams: new DigestionParams(protease.Name, MinPeptideLength: 1));
-          
-            var variableModifications = new List<ModificationWithMass>();
-            var fixedModifications = new List<ModificationWithMass>();
+            List<DigestionMotif> motifs = new List<DigestionMotif> { new DigestionMotif("K", null, 1, null) };
+            Protease protease = new Protease("CustProtease", CleavageSpecificity.Full, null, null, motifs);
+            ProteaseDictionary.Dictionary.Add(protease.Name, protease);
+            CommonParameters CommonParameters = new CommonParameters(scoreCutoff: 1, deconvolutionIntensityRatio: 50, digestionParams: new DigestionParams(protease.Name, minPeptideLength: 1));
+            var fsp = new List<(string fileName, CommonParameters fileSpecificParameters)>();
+            fsp.Add(("", CommonParameters));
+
+            var variableModifications = new List<Modification>();
+            var fixedModifications = new List<Modification>();
             var proteinList = new List<Protein> { new Protein("MNNNKNDNK", null) };
 
             var searchModes = new SinglePpmAroundZeroSearchMode(5);
 
-            Proteomics.Peptide pep1 = new Proteomics.Peptide("NNNK");
-            Proteomics.Peptide pep2 = new Proteomics.Peptide("NDNK");
+            Proteomics.AminoAcidPolymer.Peptide pep1 = new Proteomics.AminoAcidPolymer.Peptide("NNNK");
+            Proteomics.AminoAcidPolymer.Peptide pep2 = new Proteomics.AminoAcidPolymer.Peptide("NDNK");
 
             var dist1 = IsotopicDistribution.GetDistribution(pep1.GetChemicalFormula(), 0.1, 0.01);
 
@@ -53,19 +57,11 @@ namespace Test
             Scans[1] = new MsDataScan(MS2, 2, 2, false, Polarity.Positive, 2.0, new MzRange(100, 1500), "second spectrum", MZAnalyzerType.Unknown, MS2.SumOfAllY, null, null, "scan=2", selectedIonMz, null, null, isolationMZ, 2.5, DissociationType.HCD, 1, null);
 
             var myMsDataFile = new MsDataFile(Scans, null);
-
-            bool DoPrecursorDeconvolution = true;
-            bool UseProvidedPrecursorInfo = true;
-            double DeconvolutionIntensityRatio = 50;
-            int DeconvolutionMaxAssumedChargeState = 10;
-            Tolerance DeconvolutionMassTolerance = new PpmTolerance(5);
-
-            var listOfSortedms2Scans = MetaMorpheusTask.GetMs2Scans(myMsDataFile, null, DoPrecursorDeconvolution, UseProvidedPrecursorInfo, DeconvolutionIntensityRatio, DeconvolutionMaxAssumedChargeState, DeconvolutionMassTolerance).OrderBy(b => b.PrecursorMass).ToArray();
-
-            PeptideSpectralMatch[] allPsmsArray = new PeptideSpectralMatch[listOfSortedms2Scans.Length];
-
-            List<ProductType> lp = new List<ProductType> { ProductType.B, ProductType.Y };
-            new ClassicSearchEngine(allPsmsArray, listOfSortedms2Scans, variableModifications, fixedModifications, proteinList, lp, searchModes, false, CommonParameters, new List<string>()).Run();
+            
+            var listOfSortedms2Scans = MetaMorpheusTask.GetMs2Scans(myMsDataFile, null, new CommonParameters(deconvolutionIntensityRatio: 50)).OrderBy(b => b.PrecursorMass).ToArray();
+            
+            PeptideSpectralMatch[] allPsmsArray = new PeptideSpectralMatch[listOfSortedms2Scans.Length]; ;
+            new ClassicSearchEngine(allPsmsArray, listOfSortedms2Scans, variableModifications, fixedModifications, null, null, null, proteinList, searchModes, CommonParameters, fsp, new List<string>()).Run();
 
             // Two matches for this single scan! Corresponding to two co-isolated masses
             Assert.AreEqual(2, allPsmsArray.Length);
@@ -73,21 +69,8 @@ namespace Test
             Assert.IsTrue(allPsmsArray[0].Score > 1);
             Assert.AreEqual(2, allPsmsArray[0].ScanNumber);
 
-            var ojdfkj = (SequencesToActualProteinPeptidesEngineResults)new SequencesToActualProteinPeptidesEngine(new List<PeptideSpectralMatch>
-            { allPsmsArray[0], allPsmsArray[1] }, proteinList, fixedModifications, variableModifications, lp, new List<DigestionParams> { CommonParameters.DigestionParams }, CommonParameters.ReportAllAmbiguity, new List<string>()).Run();
-
-            foreach (var huh in allPsmsArray)
-            {
-                if (huh != null)
-                {
-                    huh.MatchToProteinLinkedPeptides(ojdfkj.CompactPeptideToProteinPeptideMatching);
-                }
-            }
-
             Assert.AreEqual("NNNK", allPsmsArray[0].BaseSequence);
             Assert.AreEqual("NDNK", allPsmsArray[1].BaseSequence);
         }
-
-        #endregion Public Methods
     }
 }

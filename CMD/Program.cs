@@ -1,5 +1,6 @@
-﻿using EngineLayer;
-using Fclp;
+﻿using CommandLine;
+using CommandLine.Text;
+using EngineLayer;
 using Nett;
 using Proteomics;
 using System;
@@ -11,171 +12,192 @@ using TaskLayer;
 
 namespace MetaMorpheusCommandLine
 {
-    internal static class Program
+    public static class Program
     {
-        #region Private Fields
+        private static bool InProgress;
 
-        private static bool inProgress;
+        private static System.CodeDom.Compiler.IndentedTextWriter MyWriter = new System.CodeDom.Compiler.IndentedTextWriter(Console.Out, "\t");
 
-        private static System.CodeDom.Compiler.IndentedTextWriter myWriter = new System.CodeDom.Compiler.IndentedTextWriter(Console.Out, "\t");
-
-        #endregion Private Fields
-
-        #region Private Methods
-
-        private static void Main(string[] args)
+        public static void Main(string[] args)
         {
             Console.WriteLine("Welcome to MetaMorpheus");
             Console.WriteLine(GlobalVariables.MetaMorpheusVersion);
 
-            var p = new FluentCommandLineParser<ApplicationArguments>();
+            var parser = new Parser(with => with.HelpWriter = null);
+            var parserResult = parser.ParseArguments<CommandLineSettings>(args);
 
-            p.Setup(arg => arg.Tasks)
-             .As('t', "tasks")
-             .SetDefault(new List<string>());
+            parserResult
+              .WithParsed<CommandLineSettings>(options => Run(options))
+              .WithNotParsed(errs => DisplayHelp(parserResult, errs));
+        }
 
-            p.Setup(arg => arg.OutputFolder)
-             .As('o', "outputFolder")
-             .SetDefault(null);
-
-            p.Setup(arg => arg.MetaTasks)
-             .As('m', "meta-task")
-             .SetDefault(new List<string>());
-
-            p.Setup(arg => arg.Spectra)
-             .As('s', "spectra")
-             .Required();
-
-            p.Setup(arg => arg.Databases)
-             .As('d', "databases")
-             .Required();
-
-            var result = p.Parse(args);
-
-            if (p.Object.MetaTasks.Count != 0 || p.Object.Tasks.Count != 0)
+        public static void DisplayHelp<T>(ParserResult<T> result, IEnumerable<Error> errs)
+        {
+            var helpText = HelpText.AutoBuild(result, h =>
             {
-                if (!result.HasErrors)
+                h.AdditionalNewLineAfterOption = false;
+                h.Copyright = "";
+                return HelpText.DefaultParsingErrorsHandler(result, h);
+            }, e => e);
+
+            helpText.MaximumDisplayWidth = 300;
+
+            helpText.AddPostOptionsLine("Example usage (Windows): ");
+            helpText.AddPostOptionsLine("CMD.exe -d C:\\ExampleDatabase.fasta -s C:\\ExampleSpectra.mzML -t C:\\ExampleTask.toml");
+            helpText.AddPostOptionsLine(Environment.NewLine);
+
+            helpText.AddPostOptionsLine("Example usage (Linux): ");
+            helpText.AddPostOptionsLine("dotnet CMD.dll -d home/mydata/ExampleDatabase.fasta -s home/mydata/ExampleSpectra.mzML -t home/mydata/ExampleTask.toml");
+            helpText.AddPostOptionsLine(Environment.NewLine);
+
+            Console.WriteLine(helpText);
+        }
+
+        private static void Run(CommandLineSettings settings)
+        {
+            try
+            {
+                settings.ValidateCommandLineSettings();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("MetaMorpheus encountered the following error:" + Environment.NewLine + e.Message);
+                return;
+            }
+
+            if (settings.GenerateDefaultTomls)
+            {
+                Console.WriteLine("Generating default tomls at location: " + settings.OutputFolder);
+                CommandLineSettings.GenerateDefaultTaskTomls(settings.OutputFolder);
+                return;
+            }
+
+            // set up microvignette
+            if (settings.RunMicroVignette)
+            {
+                // set up the spectra file
+                settings.Spectra.Clear();
+                settings.Spectra.Add(Path.Combine(GlobalVariables.DataDir, @"Data", "SmallCalibratible_Yeast.mzML"));
+
+                // set up the database
+                settings.Databases.Clear();
+                settings.Databases.Add(Path.Combine(GlobalVariables.DataDir, @"Data", "SmallYeast.fasta"));
+
+                // set up the tasks (calibration, GPTMD, search)
+                settings.Tasks.Clear();
+                CommandLineSettings.GenerateDefaultTaskTomls(settings.OutputFolder);
+                settings.Tasks.Add(Path.Combine(settings.OutputFolder, "CalibrationTask.toml"));
+                settings.Tasks.Add(Path.Combine(settings.OutputFolder, "GptmdTask.toml"));
+                settings.Tasks.Add(Path.Combine(settings.OutputFolder, "SearchTask.toml"));
+            }
+
+            MetaMorpheusEngine.WarnHandler += WarnHandler;
+            MetaMorpheusEngine.OutProgressHandler += MyEngine_outProgressHandler;
+            MetaMorpheusEngine.StartingSingleEngineHander += MyEngine_startingSingleEngineHander;
+            MetaMorpheusEngine.FinishedSingleEngineHandler += MyEngine_finishedSingleEngineHandler;
+
+            MetaMorpheusTask.WarnHandler += WarnHandler;
+            MetaMorpheusTask.LogHandler += LogHandler;
+            MetaMorpheusTask.StartingSingleTaskHander += MyTaskEngine_startingSingleTaskHander;
+            MetaMorpheusTask.FinishedSingleTaskHandler += MyTaskEngine_finishedSingleTaskHandler;
+            MetaMorpheusTask.FinishedWritingFileHandler += MyTaskEngine_finishedWritingFileHandler;
+
+            bool containsRawFiles = settings.Spectra.Select(v => Path.GetExtension(v).ToLowerInvariant()).Any(v => v == ".raw");
+            if (containsRawFiles && !GlobalVariables.GlobalSettings.UserHasAgreedToThermoRawFileReaderLicence)
+            {
+                // write the Thermo RawFileReader licence agreement
+                Console.WriteLine(ThermoRawFileReader.ThermoRawFileReaderLicence.ThermoLicenceText);
+                Console.WriteLine("\nIn order to search Thermo .raw files, you must agree to the above terms. Do you agree to the above terms? y/n\n");
+                string res = Console.ReadLine().ToLowerInvariant();
+                if (res == "y")
                 {
-                    MetaMorpheusEngine.WarnHandler += WarnHandler;
-                    MetaMorpheusEngine.OutProgressHandler += MyEngine_outProgressHandler;
-                    MetaMorpheusEngine.StartingSingleEngineHander += MyEngine_startingSingleEngineHander;
-                    MetaMorpheusEngine.FinishedSingleEngineHandler += MyEngine_finishedSingleEngineHandler;
-
-                    MetaMorpheusTask.WarnHandler += WarnHandler;
-                    MetaMorpheusTask.LogHandler += LogHandler;
-                    MetaMorpheusTask.StartingSingleTaskHander += MyTaskEngine_startingSingleTaskHander;
-                    MetaMorpheusTask.FinishedSingleTaskHandler += MyTaskEngine_finishedSingleTaskHandler;
-                    MetaMorpheusTask.FinishedWritingFileHandler += MyTaskEngine_finishedWritingFileHandler;
-
-                    foreach (var db in p.Object.Databases)
-                        if (!Path.GetExtension(db).Equals(".fasta"))
-                            GlobalVariables.AddMods(UsefulProteomicsDatabases.ProteinDbLoader.GetPtmListFromProteinXml(db).OfType<ModificationWithLocation>());
-
-                    List<(string, MetaMorpheusTask)> taskList = new List<(string, MetaMorpheusTask)>();
-
-                    for (int i = 0; i < p.Object.Tasks.Count; i++)
+                    var newGlobalSettings = new GlobalSettings
                     {
-                        var filePath = p.Object.Tasks[i];
+                        UserHasAgreedToThermoRawFileReaderLicence = true,
+                        WriteExcelCompatibleTSVs = GlobalVariables.GlobalSettings.WriteExcelCompatibleTSVs
+                    };
 
-                        var uhum = Toml.ReadFile(filePath, MetaMorpheusTask.tomlConfig);
-
-                        switch (uhum.Get<string>("TaskType"))
-                        {
-                            case "Search":
-                                var ye1 = Toml.ReadFile<SearchTask>(filePath, MetaMorpheusTask.tomlConfig);
-                                taskList.Add(("Task" + (i + 1) + "SearchTask", ye1));
-                                break;
-
-                            case "Calibrate":
-                                var ye2 = Toml.ReadFile<CalibrationTask>(filePath, MetaMorpheusTask.tomlConfig);
-                                taskList.Add(("Task" + (i + 1) + "CalibrationTask", ye2));
-                                break;
-
-                            case "Gptmd":
-                                var ye3 = Toml.ReadFile<GptmdTask>(filePath, MetaMorpheusTask.tomlConfig);
-                                taskList.Add(("Task" + (i + 1) + "GptmdTask", ye3));
-                                break;
-
-                            case "XLSearch":
-                                var ye4 = Toml.ReadFile<XLSearchTask>(filePath, MetaMorpheusTask.tomlConfig);
-                                taskList.Add(("Task" + (i + 1) + "XLSearchTask", ye4));
-                                break;
-
-                            case "Neo":
-                                Console.WriteLine("Neo tasks are meta-tasks that rely on several other tasks. Please use -m for meta instead of -t. Skipping.");
-                                break;
-
-                            default:
-                                Console.WriteLine(uhum.Get<string>("TaskType") + " is not a known task type! Skipping.");
-                                break;
-                        }
-                    }
-
-                    for (int i = 0; i < p.Object.MetaTasks.Count; i++)
-                    {
-                        var filePath = p.Object.MetaTasks[i];
-                        var uhum = Toml.ReadFile(filePath, MetaMorpheusTask.tomlConfig);
-                        switch (uhum.Get<string>("TaskType"))
-                        {
-                            case "Search":
-                                Console.WriteLine("Search tasks are individual tasks. Please use -t for task instead of -m. Skipping.");
-                                break;
-
-                            case "Calibrate":
-                                Console.WriteLine("Calibrate tasks are individual tasks. Please use -t for task instead of -m. Skipping.");
-                                break;
-
-                            case "Gptmd":
-                                Console.WriteLine("Gptmd tasks are individual tasks. Please use -t for task instead of -m. Skipping.");
-                                break;
-
-                            case "XLSearch":
-                                Console.WriteLine("XLSearch tasks are individual tasks. Please use -t for task instead of -m. Skipping.");
-                                break;
-
-                            case "Neo":
-                                var ye5 = Toml.ReadFile<NeoSearchTask>(filePath, MetaMorpheusTask.tomlConfig);
-                                foreach (MetaMorpheusTask task in NeoLoadTomls.LoadTomls(ye5))
-                                    taskList.Add(("Task" + (taskList.Count + 1) + ye5.TaskType, ye5));
-                                break;
-
-                            default:
-                                Console.WriteLine(uhum.Get<string>("TaskType") + " is not a known task type! Skipping.");
-                                break;
-                        }
-                    }
-
-                    List<string> startingRawFilenameList = p.Object.Spectra.Select(b => Path.GetFullPath(b)).ToList();
-                    List<DbForTask> startingXmlDbFilenameList = p.Object.Databases.Select(b => new DbForTask(Path.GetFullPath(b), IsContaminant(b))).ToList();
-                    
-                    string outputFolder = p.Object.OutputFolder;
-                    if(outputFolder == null)
-                    {
-                        var pathOfFirstSpectraFile = Path.GetDirectoryName(startingRawFilenameList.First());
-                        outputFolder = Path.Combine(pathOfFirstSpectraFile, @"$DATETIME");
-                    }
-                    
-                    EverythingRunnerEngine a = new EverythingRunnerEngine(taskList, startingRawFilenameList, startingXmlDbFilenameList, outputFolder);
-
-                    try
-                    {
-                        a.Run();
-                    }
-                    catch (Exception e)
-                    {
-                        while (e.InnerException != null) e = e.InnerException;
-                        var message = "Run failed, Exception: " + e.Message;
-                        Console.WriteLine(message);
-                    }
+                    Toml.WriteFile<GlobalSettings>(newGlobalSettings, Path.Combine(GlobalVariables.DataDir, @"settings.toml"));
+                    GlobalVariables.GlobalSettings = newGlobalSettings;
                 }
                 else
                 {
-                    Console.WriteLine("Error Text:" + result.ErrorText);
+                    Console.WriteLine("Thermo licence has been declined. Exiting MetaMorpheus. You can still search .mzML and .mgf files without agreeing to the Thermo licence.");
+                    return;
                 }
             }
-            else
+
+            foreach (var db in settings.Databases)
             {
-                Console.WriteLine("Error Text: No toml file was specified. Use -t for tasks or -m for meta-tasks.");
+                if (!Path.GetExtension(db).Equals(".fasta"))
+                {
+                    GlobalVariables.AddMods(UsefulProteomicsDatabases.ProteinDbLoader.GetPtmListFromProteinXml(db).OfType<Modification>(), true);
+
+                    // print any error messages reading the mods to the console
+                    foreach (var error in GlobalVariables.ErrorsReadingMods)
+                    {
+                        Console.WriteLine(error);
+                    }
+
+                    GlobalVariables.ErrorsReadingMods.Clear();
+                }
+            }
+
+            List<(string, MetaMorpheusTask)> taskList = new List<(string, MetaMorpheusTask)>();
+
+            var tasks = settings.Tasks.ToList();
+            for (int i = 0; i < tasks.Count; i++)
+            {
+                var filePath = tasks[i];
+
+                var toml = Toml.ReadFile(filePath, MetaMorpheusTask.tomlConfig);
+
+                switch (toml.Get<string>("TaskType"))
+                {
+                    case "Search":
+                        var searchTask = Toml.ReadFile<SearchTask>(filePath, MetaMorpheusTask.tomlConfig);
+                        taskList.Add(("Task" + (i + 1) + "SearchTask", searchTask));
+                        break;
+
+                    case "Calibrate":
+                        var calibrationTask = Toml.ReadFile<CalibrationTask>(filePath, MetaMorpheusTask.tomlConfig);
+                        taskList.Add(("Task" + (i + 1) + "CalibrationTask", calibrationTask));
+                        break;
+
+                    case "Gptmd":
+                        var GptmdTask = Toml.ReadFile<GptmdTask>(filePath, MetaMorpheusTask.tomlConfig);
+                        taskList.Add(("Task" + (i + 1) + "GptmdTask", GptmdTask));
+                        break;
+
+                    case "XLSearch":
+                        var XlTask = Toml.ReadFile<XLSearchTask>(filePath, MetaMorpheusTask.tomlConfig);
+                        taskList.Add(("Task" + (i + 1) + "XLSearchTask", XlTask));
+                        break;
+
+                    default:
+                        Console.WriteLine(toml.Get<string>("TaskType") + " is not a known task type! Skipping.");
+                        break;
+                }
+            }
+
+            List<string> startingRawFilenameList = settings.Spectra.Select(b => Path.GetFullPath(b)).ToList();
+            List<DbForTask> startingXmlDbFilenameList = settings.Databases.Select(b => new DbForTask(Path.GetFullPath(b), IsContaminant(b))).ToList();
+
+            EverythingRunnerEngine a = new EverythingRunnerEngine(taskList, startingRawFilenameList, startingXmlDbFilenameList, settings.OutputFolder);
+
+            try
+            {
+                a.Run();
+            }
+            catch (Exception e)
+            {
+                while (e.InnerException != null)
+                {
+                    e = e.InnerException;
+                }
+
+                var message = "Run failed, Exception: " + e.Message;
+                Console.WriteLine(message);
             }
         }
 
@@ -184,7 +206,7 @@ namespace MetaMorpheusCommandLine
             string[] tokens = Regex.Split(toWrite, @"\r?\n|\r");
             foreach (var str in tokens)
             {
-                myWriter.WriteLine(str);
+                MyWriter.WriteLine(str);
             }
         }
 
@@ -192,94 +214,99 @@ namespace MetaMorpheusCommandLine
         {
             if (b.ToUpper().Contains("contaminant".ToUpper())
                 || b.ToUpper().Contains("CRAP"))
+            {
                 return true;
+            }
+
             return false;
         }
 
         private static void MyTaskEngine_startingSingleTaskHander(object sender, SingleTaskEventArgs e)
         {
-            if (inProgress)
-                myWriter.WriteLine();
-            inProgress = false;
+            if (InProgress)
+            {
+                MyWriter.WriteLine();
+            }
+
+            InProgress = false;
             WriteMultiLineIndented("Starting task: " + e.DisplayName);
-            myWriter.Indent++;
+            MyWriter.Indent++;
         }
 
         private static void MyTaskEngine_finishedWritingFileHandler(object sender, SingleFileEventArgs e)
         {
-            if (inProgress)
-                myWriter.WriteLine();
-            inProgress = false;
-            WriteMultiLineIndented("Finished writing file: " + e.writtenFile);
+            if (InProgress)
+            {
+                MyWriter.WriteLine();
+            }
+
+            InProgress = false;
+            WriteMultiLineIndented("Finished writing file: " + e.WrittenFile);
         }
 
         private static void MyTaskEngine_finishedSingleTaskHandler(object sender, SingleTaskEventArgs e)
         {
-            if (inProgress)
-                myWriter.WriteLine();
-            inProgress = false;
-            myWriter.Indent--;
+            if (InProgress)
+            {
+                MyWriter.WriteLine();
+            }
+
+            InProgress = false;
+            MyWriter.Indent--;
             WriteMultiLineIndented("Finished task: " + e.DisplayName);
         }
 
         private static void MyEngine_startingSingleEngineHander(object sender, SingleEngineEventArgs e)
         {
-            if (inProgress)
-                myWriter.WriteLine();
-            inProgress = false;
-            WriteMultiLineIndented("Starting engine: " + e.myEngine.GetType().Name + " " + e.myEngine.GetId());
-            myWriter.Indent++;
+            if (InProgress)
+            {
+                MyWriter.WriteLine();
+            }
+
+            InProgress = false;
+            WriteMultiLineIndented("Starting engine: " + e.MyEngine.GetType().Name + " " + e.MyEngine.GetId());
+            MyWriter.Indent++;
         }
 
         private static void MyEngine_finishedSingleEngineHandler(object sender, SingleEngineFinishedEventArgs e)
         {
-            if (inProgress)
-                myWriter.WriteLine();
-            inProgress = false;
+            if (InProgress)
+            {
+                MyWriter.WriteLine();
+            }
+
+            InProgress = false;
             WriteMultiLineIndented("Engine results: " + e);
-            myWriter.Indent--;
-            WriteMultiLineIndented("Finished engine: " + e.myResults.MyEngine.GetType().Name + " " + e.myResults.MyEngine.GetId());
+            MyWriter.Indent--;
+            WriteMultiLineIndented("Finished engine: " + e.MyResults.MyEngine.GetType().Name + " " + e.MyResults.MyEngine.GetId());
         }
 
         private static void MyEngine_outProgressHandler(object sender, ProgressEventArgs e)
         {
-            myWriter.Write(e.new_progress + " ");
-            inProgress = true;
+            MyWriter.Write(e.NewProgress + " ");
+            InProgress = true;
         }
 
         private static void WarnHandler(object sender, StringEventArgs e)
         {
-            if (inProgress)
-                myWriter.WriteLine();
-            inProgress = false;
+            if (InProgress)
+            {
+                MyWriter.WriteLine();
+            }
+
+            InProgress = false;
             WriteMultiLineIndented("WARN: " + e.S);
         }
 
         private static void LogHandler(object sender, StringEventArgs e)
         {
-            if (inProgress)
-                myWriter.WriteLine();
-            inProgress = false;
+            if (InProgress)
+            {
+                MyWriter.WriteLine();
+            }
+
+            InProgress = false;
             WriteMultiLineIndented("Log: " + e.S);
         }
-
-        #endregion Private Methods
-
-        #region Public Classes
-
-        public class ApplicationArguments
-        {
-            #region Public Properties
-
-            public List<string> Tasks { get; set; }
-            public List<string> Databases { get; set; }
-            public List<string> Spectra { get; set; }
-            public List<string> MetaTasks { get; set; }
-            public string OutputFolder { get; set; }
-
-            #endregion Public Properties
-        }
-
-        #endregion Public Classes
     }
 }

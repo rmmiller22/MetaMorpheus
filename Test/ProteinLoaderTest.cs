@@ -1,4 +1,6 @@
-﻿using NUnit.Framework;
+﻿using EngineLayer;
+using NUnit.Framework;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using TaskLayer;
@@ -9,6 +11,18 @@ namespace Test
     [TestFixture]
     public class ProteinLoaderTest
     {
+        [Test]
+        public void ReadEmptyFasta()
+        {
+            new ProteinLoaderTask("").Run(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "empty.fa"));
+        }
+
+        [Test]
+        public void ReadFastaWithEmptyEntry()
+        {
+            new ProteinLoaderTask("").Run(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "oneEmptyEntry.fa"));
+        }
+
         [Test]
         public void TestProteinLoad()
         {
@@ -35,7 +49,7 @@ namespace Test
 
             protected override MyTaskResults RunSpecific(string OutputFolder, List<DbForTask> dbFilenameList, List<string> currentRawFileList, string taskId, FileSpecificParameters[] fileSettingsList)
             {
-                LoadProteins("", dbFilenameList, true, DecoyType.None, new List<string>());
+                LoadProteins("", dbFilenameList, true, DecoyType.None, new List<string>(), new CommonParameters());
                 return null;
             }
         }

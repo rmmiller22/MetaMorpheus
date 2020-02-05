@@ -6,22 +6,21 @@ namespace EngineLayer
 {
     public class OpenSearchMode : MassDiffAcceptor
     {
-        #region Public Constructors
-
         public OpenSearchMode() : base("OpenSearch")
         {
         }
-
-        #endregion Public Constructors
-
-        #region Public Methods
 
         public override int Accepts(double scanPrecursorMass, double peptideMass)
         {
             return 0;
         }
 
-        public override IEnumerable<AllowedIntervalWithNotch> GetAllowedPrecursorMassIntervals(double peptideMonoisotopicMass)
+        public override IEnumerable<AllowedIntervalWithNotch> GetAllowedPrecursorMassIntervalsFromTheoreticalMass(double peptideMonoisotopicMass)
+        {
+            yield return new AllowedIntervalWithNotch(new DoubleRange(Double.NegativeInfinity, Double.PositiveInfinity), 0);
+        }
+
+        public override IEnumerable<AllowedIntervalWithNotch> GetAllowedPrecursorMassIntervalsFromObservedMass(double peptideMonoisotopicMass)
         {
             yield return new AllowedIntervalWithNotch(new DoubleRange(Double.NegativeInfinity, Double.PositiveInfinity), 0);
         }
@@ -35,7 +34,5 @@ namespace EngineLayer
         {
             return FileNameAddition + " OpenSearch";
         }
-
-        #endregion Public Methods
     }
 }

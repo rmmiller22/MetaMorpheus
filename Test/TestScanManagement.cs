@@ -1,32 +1,24 @@
 ﻿using EngineLayer;
 using MassSpectrometry;
 using MzLibUtil;
+using NUnit.Framework;
 using System.Collections.Generic;
 using System.Linq;
-using NUnit.Framework;
 using TaskLayer;
-
-
 
 namespace Test
 {
     [TestFixture]
-    class TestScanManagement
+    internal class TestScanManagement
     {
-        #region Public Method
-
         //[Test]
         public static void TestGetCombinedMs2Scans()
         {
             var myMsDataFile = new TestDataFile(5);
 
-            bool DoPrecursorDeconvolution = true;
-            bool UseProvidedPrecursorInfo = true;
-            double DeconvolutionIntensityRatio = 4;
-            int DeconvolutionMaxAssumedChargeState = 10;
             Tolerance DeconvolutionMassTolerance = new PpmTolerance(5);
 
-            var listOfSortedms2Scans = MetaMorpheusTask.GetMs2Scans(myMsDataFile, null, DoPrecursorDeconvolution, UseProvidedPrecursorInfo, DeconvolutionIntensityRatio, DeconvolutionMaxAssumedChargeState, DeconvolutionMassTolerance).OrderBy(b => b.PrecursorMass).ToArray();
+            var listOfSortedms2Scans = MetaMorpheusTask.GetMs2Scans(myMsDataFile, null, new CommonParameters()).OrderBy(b => b.PrecursorMass).ToArray();
 
             //Write prime code to combine MS2MS3
             Dictionary<int, double> listOfScanPrecusor = new Dictionary<int, double>();
@@ -41,8 +33,10 @@ namespace Test
                     if (ms2scan.OneBasedPrecursorScanNumber.HasValue)
                     {
                         listOfScanPrecusor.Add(ms2scan.OneBasedPrecursorScanNumber.Value, ms2scan.SelectedIonMZ.Value);
-                        List<int> currentScanMS2OneBasedScanNumber = new List<int>();
-                        currentScanMS2OneBasedScanNumber.Add(ms2scan.OneBasedScanNumber);
+                        List<int> currentScanMS2OneBasedScanNumber = new List<int>
+                        {
+                            ms2scan.OneBasedScanNumber
+                        };
                         var mz2 = ms2scan.MassSpectrum.XArray.ToList();
                         var intensities2 = ms2scan.MassSpectrum.YArray.ToList();
                         for (int i = 1; i < 7; i++)
@@ -52,13 +46,11 @@ namespace Test
                                 var x = myMsDataFile.GetOneBasedScan(ms2scan.OneBasedScanNumber + i);
                                 //var x = myMsDataFile.OfType<IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>>().ElementAt(i);
 
-
                                 if (x.MsnOrder == 2 && x.SelectedIonMZ == ms2scan.SelectedIonMZ)
                                 {
                                     currentScanMS2OneBasedScanNumber.Add(x.OneBasedScanNumber);
                                     mz2.AddRange(x.MassSpectrum.XArray.ToList());
                                     intensities2.AddRange(x.MassSpectrum.YArray.ToList());
-
                                 }
                                 if (x.MsnOrder == 3 && currentScanMS2OneBasedScanNumber.Contains(x.OneBasedPrecursorScanNumber.Value))
                                 {
@@ -75,17 +67,10 @@ namespace Test
             }
             foreach (var ms2scan in ListOfSortedMsScans.Where(x => x.MsnOrder != 1))
             {
-                test.Add(new Ms2ScanWithSpecificMass(ms2scan, ms2scan.SelectedIonMonoisotopicGuessMz.Value, ms2scan.SelectedIonChargeStateGuess.Value, ""));
+                test.Add(new Ms2ScanWithSpecificMass(ms2scan, ms2scan.SelectedIonMonoisotopicGuessMz.Value, ms2scan.SelectedIonChargeStateGuess.Value, "", new CommonParameters()));
             }
             var testToArray = test.OrderBy(b => b.PrecursorMass).ToArray();
 
-            //Using function to combine MS2MS3
-            //var listOfSortedms2Scans2 = MetaMorpheusTask.GetCombinedMs2Scans(myMsDataFile, null, DoPrecursorDeconvolution, UseProvidedPrecursorInfo, DeconvolutionIntensityRatio, DeconvolutionMaxAssumedChargeState, DeconvolutionMassTolerance).OrderBy(b => b.PrecursorMass).ToArray();
-
-            //Assert.AreEqual(5, myMsDataFile.NumSpectra);
-            //Assert.AreEqual(1, listOfSortedms2Scans2.Count());
         }
-
-        #endregion 
     }
 }

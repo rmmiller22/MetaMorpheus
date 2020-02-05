@@ -3,6 +3,9 @@ using EngineLayer.ClassicSearch;
 using MzLibUtil;
 using NUnit.Framework;
 using Proteomics;
+using Proteomics.Fragmentation;
+using Proteomics.ProteolyticDigestion;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using TaskLayer;
@@ -12,66 +15,54 @@ namespace Test
     [TestFixture]
     internal static class AmbiguityTest
     {
-        #region Public Methods
-
         [Test]
         public static void TestResolveAmbiguities()
         {
-            Protease protease = new Protease("Custom Protease4", new List<string> { "K" }, new List<string>(), TerminusType.C, CleavageSpecificity.Full, null, null, null);
-            GlobalVariables.ProteaseDictionary.Add(protease.Name, protease);
-            CommonParameters CommonParameters = new CommonParameters(DigestionParams: new DigestionParams(protease: protease.Name, MinPeptideLength: 1), ScoreCutoff: 1, ReportAllAmbiguity: false);
-            
-            var myMsDataFile = new TestDataFile();
-            var variableModifications = new List<ModificationWithMass>();
-            var fixedModifications = new List<ModificationWithMass>();
-            var proteinList = new List<Protein> { new Protein("MNNKNKNKQQQ", "Prot1", "organism", null, null, null, null, null, true), new Protein("MNNNKQQQ", "Prot2") };
+            Protease protease = new Protease("Custom Protease4", CleavageSpecificity.Full, null, null, new List<DigestionMotif> { new DigestionMotif("K", null, 1, "") });
+            ProteaseDictionary.Dictionary.Add(protease.Name, protease);
+            CommonParameters CommonParameters_t = new CommonParameters(
+                dissociationType: MassSpectrometry.DissociationType.HCD,
+                digestionParams: new DigestionParams(
+                    protease: protease.Name,
+                    minPeptideLength: 1),
+                scoreCutoff: 1,
+                reportAllAmbiguity: true);
+            var fsp_t = new List<(string fileName, CommonParameters fileSpecificParameters)>();
+            fsp_t.Add(("", CommonParameters_t));
 
+            CommonParameters CommonParameters_f = new CommonParameters(
+                dissociationType: MassSpectrometry.DissociationType.HCD,
+                digestionParams: new DigestionParams(
+                    protease: protease.Name,
+                    minPeptideLength: 1),
+                scoreCutoff: 1,
+                reportAllAmbiguity: false);
+            var fsp_f = new List<(string fileName, CommonParameters fileSpecificParameters)>();
+            fsp_f.Add(("", CommonParameters_t));
+
+            var myMsDataFile = new TestDataFile();
+            var variableModifications = new List<Modification>();
+            var fixedModifications = new List<Modification>();
+            var proteinList = new List<Protein> { new Protein("MNNKNKNKQQQ", "Prot1"), new Protein("MNNNKQQQ", "Prot2") };
             var searchModes = new SinglePpmAroundZeroSearchMode(5);
 
-            bool DoPrecursorDeconvolution = true;
-            bool UseProvidedPrecursorInfo = true;
-            double DeconvolutionIntensityRatio = 4;
-            int DeconvolutionMaxAssumedChargeState = 10;
             Tolerance DeconvolutionMassTolerance = new PpmTolerance(5);
 
-            var listOfSortedms2Scans = MetaMorpheusTask.GetMs2Scans(myMsDataFile, null, DoPrecursorDeconvolution, UseProvidedPrecursorInfo, DeconvolutionIntensityRatio, DeconvolutionMaxAssumedChargeState, DeconvolutionMassTolerance).OrderBy(b => b.PrecursorMass).ToArray();
+            var listOfSortedms2Scans = MetaMorpheusTask.GetMs2Scans(myMsDataFile, null, new CommonParameters()).OrderBy(b => b.PrecursorMass).ToArray();
+            
+            PeptideSpectralMatch[] allPsmsArray_withAmbiguity = new PeptideSpectralMatch[listOfSortedms2Scans.Length];
+            
+            PeptideSpectralMatch[] allPsmsArray_withOutAmbiguity = new PeptideSpectralMatch[listOfSortedms2Scans.Length];
 
-            PeptideSpectralMatch[] allPsmsArrayt = new PeptideSpectralMatch[listOfSortedms2Scans.Length];
-            PeptideSpectralMatch[] allPsmsArrayf = new PeptideSpectralMatch[listOfSortedms2Scans.Length];
-            new ClassicSearchEngine(allPsmsArrayt, listOfSortedms2Scans, variableModifications, fixedModifications, proteinList, new List<ProductType> { ProductType.B, ProductType.Y }, searchModes, false, CommonParameters, new List<string>()).Run();
-            new ClassicSearchEngine(allPsmsArrayf, listOfSortedms2Scans, variableModifications, fixedModifications, proteinList, new List<ProductType> { ProductType.B, ProductType.Y }, searchModes, false, CommonParameters, new List<string>()).Run();
+            new ClassicSearchEngine(allPsmsArray_withAmbiguity, listOfSortedms2Scans, variableModifications, fixedModifications, null, null, null, proteinList, searchModes, CommonParameters_t, fsp_t, new List<string>()).Run(); //report all ambiguity TRUE
+            new ClassicSearchEngine(allPsmsArray_withOutAmbiguity, listOfSortedms2Scans, variableModifications, fixedModifications, null, null, null, proteinList, searchModes, CommonParameters_f, fsp_f, new List<string>()).Run(); //report all ambiguity FALSE
 
-            var haht = (SequencesToActualProteinPeptidesEngineResults)new SequencesToActualProteinPeptidesEngine(new List<PeptideSpectralMatch>
-            { allPsmsArrayt[0] }, proteinList, fixedModifications, variableModifications, new List<ProductType>
-            { ProductType.B, ProductType.Y }, new List<DigestionParams> { CommonParameters.DigestionParams }, true, new List<string>()).Run();
-            var hahf = (SequencesToActualProteinPeptidesEngineResults)new SequencesToActualProteinPeptidesEngine(new List<PeptideSpectralMatch>
-            { allPsmsArrayf[0] }, proteinList, fixedModifications, variableModifications, new List<ProductType>
-            { ProductType.B, ProductType.Y }, new List<DigestionParams> { CommonParameters.DigestionParams }, CommonParameters.ReportAllAmbiguity, new List<string>()).Run();
-
-            foreach (var huh in allPsmsArrayt)
-            {
-                if (huh != null)
-                {
-                    huh.MatchToProteinLinkedPeptides(haht.CompactPeptideToProteinPeptideMatching);
-                }
-            }
-
-            foreach (var huh in allPsmsArrayf)
-            {
-                if (huh != null)
-                {
-                    huh.MatchToProteinLinkedPeptides(hahf.CompactPeptideToProteinPeptideMatching);
-                }
-            }
-
-            Assert.AreEqual("QQQ", allPsmsArrayt[0].BaseSequence);
-            Assert.AreEqual("QQQ", allPsmsArrayf[0].BaseSequence);
-            Assert.IsTrue(allPsmsArrayt[0].ProteinLength == null);
-            Assert.IsTrue(allPsmsArrayf[0].ProteinLength == 8);
-            Assert.IsTrue(allPsmsArrayt[0].OneBasedStartResidueInProtein == null);
-            Assert.IsTrue(allPsmsArrayf[0].OneBasedStartResidueInProtein == 6);
+            Assert.AreEqual("QQQ", allPsmsArray_withAmbiguity[0].BaseSequence);
+            Assert.AreEqual("QQQ", allPsmsArray_withOutAmbiguity[0].BaseSequence);
+            Assert.IsTrue(allPsmsArray_withAmbiguity[0].ProteinLength == null);
+            Assert.IsTrue(allPsmsArray_withOutAmbiguity[0].ProteinLength != null);
+            Assert.IsTrue(allPsmsArray_withAmbiguity[0].OneBasedStartResidueInProtein == null);
+            Assert.IsTrue(allPsmsArray_withOutAmbiguity[0].OneBasedStartResidueInProtein != null);
         }
-
-        #endregion Public Methods
     }
 }

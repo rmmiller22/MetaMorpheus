@@ -2,19 +2,13 @@
 {
     public class FdrInfo
     {
-        #region Public Properties
-
-        public int CumulativeTarget { get; set; }
-        public int CumulativeDecoy { get; set; }
-        public int CumulativeTargetNotch { get; set; }
-        public int CumulativeDecoyNotch { get; set; }
+        public double CumulativeTarget { get; set; }
+        public double CumulativeDecoy { get; set; }
+        public double CumulativeTargetNotch { get; set; }
+        public double CumulativeDecoyNotch { get; set; }
         public double QValue { get; set; }
         public double QValueNotch { get; set; }
-        public bool CalculateEValue { get; set; }
-        public double MaximumLikelihood { get; set; }
-        public double EValue { get; set; }
-        public double EScore { get; set; }
-
-        #endregion Public Properties
+        public double PEP { get; set; }
+        public double PEP_QValue { get; set; }
     }
 }

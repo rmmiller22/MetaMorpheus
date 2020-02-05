@@ -1,10 +1,11 @@
-﻿using System;
-using System.Linq;
-using System.Windows;
+﻿using EngineLayer;
+using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
-using System.Collections.Generic;
-using EngineLayer;
+using System.Linq;
+using System.Windows;
+using System.Windows.Input;
 
 namespace MetaMorpheusGUI
 {
@@ -19,7 +20,7 @@ namespace MetaMorpheusGUI
         public ExperimentalDesignWindow(ObservableCollection<RawDataForDataGrid> spectraFilesObservableCollection)
         {
             InitializeComponent();
-            
+
             foreach (var item in spectraFilesObservableCollection.Where(p => p.Use).Select(p => p.FilePath))
             {
                 spectraFilesQuantSets.Add(new ExperimentalDesignForDataGrid(item));
@@ -224,6 +225,18 @@ namespace MetaMorpheusGUI
             }
 
             return null;
+        }
+
+        private void KeyPressed(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Return)
+            {
+                BtnSaveQuant_Click(sender, e);
+            }
+            else if (e.Key == Key.Escape)
+            {
+                BtnCancelQuant_Click(sender, e);
+            }
         }
     }
 }

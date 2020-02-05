@@ -1,71 +1,79 @@
-﻿using EngineLayer;
+﻿using MassSpectrometry;
 using MzLibUtil;
+using Proteomics.Fragmentation;
+using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
+using System.Reflection;
 
 namespace EngineLayer
 {
     public class CommonParameters
     {
-        #region Public Constructors
-
-        // this parameterless constructor needs to exist to read the toml. 
+        // this parameterless constructor needs to exist to read the toml.
         // if you can figure out a way to get rid of it, feel free...
-        public CommonParameters() : this(DigestionParams: null)
+        public CommonParameters()
+            : this(digestionParams: null)
         {
-
         }
 
-        public CommonParameters(bool BIons = true, bool YIons = true, bool ZdotIons = false, bool CIons = false, bool DoPrecursorDeconvolution = true,
-            bool UseProvidedPrecursorInfo = true, double DeconvolutionIntensityRatio = 3, int DeconvolutionMaxAssumedChargeState = 12, bool ReportAllAmbiguity = true,
-            bool CompIons = false, int TotalPartitions = 1, double ScoreCutoff = 5, int TopNpeaks = 200, double MinRatio = 0.01, bool TrimMs1Peaks = false,
-            bool TrimMsMsPeaks = true, bool UseDeltaScore = false, bool CalculateEValue = false, Tolerance ProductMassTolerance = null, Tolerance PrecursorMassTolerance = null, Tolerance DeconvolutionMassTolerance = null,
-            int MaxThreadsToUsePerFile = -1, DigestionParams DigestionParams = null, IEnumerable<(string, string)> ListOfModsVariable = null, IEnumerable<(string, string)> ListOfModsFixed = null)
+        public CommonParameters(string taskDescriptor = null, DissociationType dissociationType = DissociationType.HCD, DissociationType childScanDissociationType = DissociationType.Unknown, string separationType = "HPLC", bool doPrecursorDeconvolution = true,
+            bool useProvidedPrecursorInfo = true, double deconvolutionIntensityRatio = 3, int deconvolutionMaxAssumedChargeState = 12, bool reportAllAmbiguity = true,
+            bool addCompIons = false, int totalPartitions = 1, double scoreCutoff = 5, int? numberOfPeaksToKeepPerWindow = 200, double? minimumAllowedIntensityRatioToBasePeak = 0.01, double? windowWidthThomsons = null, int? numberOfWindows = null, bool normalizePeaksAccrossAllWindows = false, bool trimMs1Peaks = false,
+            bool trimMsMsPeaks = true, bool useDeltaScore = false, Tolerance productMassTolerance = null, Tolerance precursorMassTolerance = null, Tolerance deconvolutionMassTolerance = null,
+            int maxThreadsToUsePerFile = -1, DigestionParams digestionParams = null, IEnumerable<(string, string)> listOfModsVariable = null, IEnumerable<(string, string)> listOfModsFixed = null, double qValueOutputFilter = 1.0,
+            bool assumeOrphanPeaksAreZ1Fragments = true, int maxHeterozygousVariants = 4, int minVariantDepth = 1)
         {
-            this.BIons = BIons;
-            this.YIons = YIons;
-            this.ZdotIons = ZdotIons;
-            this.CIons = CIons;
-            this.DoPrecursorDeconvolution = DoPrecursorDeconvolution;
-            this.UseProvidedPrecursorInfo = UseProvidedPrecursorInfo;
-            this.DeconvolutionIntensityRatio = DeconvolutionIntensityRatio;
-            this.DeconvolutionMaxAssumedChargeState = DeconvolutionMaxAssumedChargeState;
-            this.ReportAllAmbiguity = ReportAllAmbiguity;
-            this.CompIons = CompIons;
-            this.TotalPartitions = TotalPartitions;
-            this.ScoreCutoff = ScoreCutoff;
-            this.TopNpeaks = TopNpeaks;
-            this.MinRatio = MinRatio;
-            this.TrimMs1Peaks = TrimMs1Peaks;
-            this.TrimMsMsPeaks = TrimMsMsPeaks;
-            this.UseDeltaScore = UseDeltaScore;
-            this.CalculateEValue = CalculateEValue;
-            this.MaxThreadsToUsePerFile = MaxThreadsToUsePerFile;
+            TaskDescriptor = taskDescriptor;
+            DoPrecursorDeconvolution = doPrecursorDeconvolution;
+            UseProvidedPrecursorInfo = useProvidedPrecursorInfo;
+            DeconvolutionIntensityRatio = deconvolutionIntensityRatio;
+            DeconvolutionMaxAssumedChargeState = deconvolutionMaxAssumedChargeState;
+            ReportAllAmbiguity = reportAllAmbiguity;
+            AddCompIons = addCompIons;
+            TotalPartitions = totalPartitions;
+            ScoreCutoff = scoreCutoff;
+            NumberOfPeaksToKeepPerWindow = numberOfPeaksToKeepPerWindow;
+            MinimumAllowedIntensityRatioToBasePeak = minimumAllowedIntensityRatioToBasePeak;
+            WindowWidthThomsons = windowWidthThomsons;
+            NumberOfWindows = numberOfWindows;
+            NormalizePeaksAccrossAllWindows = normalizePeaksAccrossAllWindows;
+            TrimMs1Peaks = trimMs1Peaks;
+            TrimMsMsPeaks = trimMsMsPeaks;
+            UseDeltaScore = useDeltaScore;
+            MaxThreadsToUsePerFile = maxThreadsToUsePerFile == -1 ? Environment.ProcessorCount > 1 ? Environment.ProcessorCount - 1 : 1 : maxThreadsToUsePerFile;
 
-            this.ProductMassTolerance = ProductMassTolerance ?? new PpmTolerance(20);
-            this.PrecursorMassTolerance = PrecursorMassTolerance ?? new PpmTolerance(5);
-            this.DeconvolutionMassTolerance = DeconvolutionMassTolerance ?? new PpmTolerance(4);
-            this.DigestionParams = DigestionParams ?? new DigestionParams();
-            this.ListOfModsVariable = ListOfModsVariable ?? new List<(string, string)> { ("Common Variable", "Oxidation of M") };
-            this.ListOfModsFixed = ListOfModsFixed ?? new List<(string, string)> { ("Common Fixed", "Carbamidomethyl of C"), ("Common Fixed", "Carbamidomethyl of U") };
+            ProductMassTolerance = productMassTolerance ?? new PpmTolerance(20);
+            PrecursorMassTolerance = precursorMassTolerance ?? new PpmTolerance(5);
+            DeconvolutionMassTolerance = deconvolutionMassTolerance ?? new PpmTolerance(4);
+            DigestionParams = digestionParams ?? new DigestionParams();
+            ListOfModsVariable = listOfModsVariable ?? new List<(string, string)> { ("Common Variable", "Oxidation on M") };
+            ListOfModsFixed = listOfModsFixed ?? new List<(string, string)> { ("Common Fixed", "Carbamidomethyl on C"), ("Common Fixed", "Carbamidomethyl on U") };
+            DissociationType = dissociationType;
+            SeparationType = separationType;
+            ChildScanDissociationType = childScanDissociationType;
 
-            if (MaxThreadsToUsePerFile == -1)
-            {
-                this.MaxThreadsToUsePerFile = Environment.ProcessorCount > 1 ? Environment.ProcessorCount - 1 : 1;
-            }
-            else
-            {
-                this.MaxThreadsToUsePerFile = MaxThreadsToUsePerFile;
-            }
+            CustomIons = DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom];
+            // reset custom fragmentation product types to default empty list
+            DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom] = new List<ProductType>() { };
+
+            QValueOutputFilter = qValueOutputFilter;
+
+            AssumeOrphanPeaksAreZ1Fragments = assumeOrphanPeaksAreZ1Fragments;
+
+            MaxHeterozygousVariants = maxHeterozygousVariants;
+            MinVariantDepth = minVariantDepth;
         }
 
-        #endregion Public Constructors
+        // Notes:
+        // 1) Any new property must not be nullable (such as int?) or else if it is null,
+        //    the null setting will not be written to a toml
+        //    and the default will override (so it's okay ONLY if the default is null)
+        // 2) All setters should be private unless necessary
+        // 3) If you add a new property here, you must add it to MetaMorpheusTask.cs/SetAllFileSpecificCommonParams !!
+        //    If you forget this, and the user uses file-specific parameters, your settings will be overwritten by default values!
 
-        #region Public Properties
-
-        //Any new property must not be nullable (int?) or else if it is null, the null setting will not be written to a toml and the default will override (so it's okay if the default is null)
-        public string TaskDescriptor { get; set; }
+        public string TaskDescriptor { get; private set; }
         public int MaxThreadsToUsePerFile { get; private set; }
         public IEnumerable<(string, string)> ListOfModsFixed { get; private set; }
         public IEnumerable<(string, string)> ListOfModsVariable { get; private set; }
@@ -75,73 +83,105 @@ namespace EngineLayer
         public int DeconvolutionMaxAssumedChargeState { get; private set; }
         public Tolerance DeconvolutionMassTolerance { get; private set; }
         public int TotalPartitions { get; private set; }
-        public bool BIons { get; private set; }
-        public bool YIons { get; private set; }
-        public bool ZdotIons { get; private set; }
-        public bool CIons { get; private set; }
-        public Tolerance ProductMassTolerance { get; private set; }
-        public Tolerance PrecursorMassTolerance { get; private set; }
-        public bool CompIons { get; private set; }
+        public Tolerance ProductMassTolerance { get; set; } // public setter required for calibration task
+        public Tolerance PrecursorMassTolerance { get; set; } // public setter required for calibration task
+        public bool AddCompIons { get; private set; }
         public double ScoreCutoff { get; private set; }
         public DigestionParams DigestionParams { get; private set; }
         public bool ReportAllAmbiguity { get; private set; }
-        public int TopNpeaks { get; private set; }
-        public double MinRatio { get; private set; }
+        public int? NumberOfPeaksToKeepPerWindow { get; private set; }
+        public double? MinimumAllowedIntensityRatioToBasePeak { get; private set; }
+        public double? WindowWidthThomsons { get; private set; }
+        public int? NumberOfWindows { get; private set; }
+        public bool NormalizePeaksAccrossAllWindows { get; private set; }
         public bool TrimMs1Peaks { get; private set; }
         public bool TrimMsMsPeaks { get; private set; }
         public bool UseDeltaScore { get; private set; }
-        public bool CalculateEValue { get; private set; }
-
-        #endregion Public Properties
-
-        #region Public Methods
+        public double QValueOutputFilter { get; private set; }
+        public List<ProductType> CustomIons { get; private set; }
+        public bool AssumeOrphanPeaksAreZ1Fragments { get; private set; }
+        public int MaxHeterozygousVariants { get; private set; }
+        public int MinVariantDepth { get; private set; }
+        public DissociationType DissociationType { get; private set; }
+        public DissociationType ChildScanDissociationType { get; private set; }
+        public string SeparationType { get; private set; }
 
         public CommonParameters Clone()
         {
+            CommonParameters c = new CommonParameters();
+            foreach (PropertyInfo property in typeof(CommonParameters).GetProperties())
+            {
+                property.SetValue(c, property.GetValue(this));
+            }
+            return c;
+        }
+
+        public CommonParameters CloneWithNewDissociationType(DissociationType dissociationType)
+        {
+            CommonParameters c = new CommonParameters();
+            foreach (PropertyInfo property in typeof(CommonParameters).GetProperties())
+            {
+                property.SetValue(c, property.GetValue(this));
+            }
+            c.DissociationType = dissociationType;
+            return c;
+        }
+
+        public CommonParameters CloneWithNewTerminus(FragmentationTerminus? terminus = null, bool? addCompIons = null) //for use with speedy semi-specific searches to get both termini
+        {
+            if (terminus == null)
+            {
+                terminus = DigestionParams.FragmentationTerminus;
+            }
+            if (addCompIons == null)
+            {
+                addCompIons = AddCompIons;
+            }
             return new CommonParameters(
-                BIons: this.BIons,
-                YIons: this.YIons,
-                ZdotIons: this.ZdotIons,
-                CIons: this.CIons,
-                DoPrecursorDeconvolution: this.DoPrecursorDeconvolution,
-                UseProvidedPrecursorInfo: this.UseProvidedPrecursorInfo,
-                DeconvolutionIntensityRatio: this.DeconvolutionIntensityRatio,
-                DeconvolutionMaxAssumedChargeState: this.DeconvolutionMaxAssumedChargeState,
-                ReportAllAmbiguity: this.ReportAllAmbiguity,
-                CompIons: this.CompIons,
-                TotalPartitions: this.TotalPartitions,
-                ScoreCutoff: this.ScoreCutoff,
-                TopNpeaks: this.TopNpeaks,
-                MinRatio: this.MinRatio,
-                TrimMs1Peaks: this.TrimMs1Peaks,
-                TrimMsMsPeaks: this.TrimMsMsPeaks,
-                UseDeltaScore: this.UseDeltaScore,
-                CalculateEValue: this.CalculateEValue,
-                ProductMassTolerance: this.ProductMassTolerance,
-                PrecursorMassTolerance: this.PrecursorMassTolerance,
-                DeconvolutionMassTolerance: this.DeconvolutionMassTolerance,
-                MaxThreadsToUsePerFile: this.MaxThreadsToUsePerFile,
-                DigestionParams: this.DigestionParams,
-                ListOfModsVariable: this.ListOfModsVariable,
-                ListOfModsFixed: this.ListOfModsFixed
-            );
-        }
-        
-        public void SetProductMassTolerance(Tolerance ProductMassTolerance)
-        {
-            this.ProductMassTolerance = ProductMassTolerance;
-        }
-
-        public void SetPrecursorMassTolerance(Tolerance PrecursorMassTolerance)
-        {
-            this.PrecursorMassTolerance = PrecursorMassTolerance;
-        }
-
-        public void SetDigestionParams(DigestionParams DigestionParams)
-        {
-            this.DigestionParams = DigestionParams;
+                                TaskDescriptor,
+                                DissociationType,
+                                ChildScanDissociationType,
+                                SeparationType,
+                                DoPrecursorDeconvolution,
+                                UseProvidedPrecursorInfo,
+                                DeconvolutionIntensityRatio,
+                                DeconvolutionMaxAssumedChargeState,
+                                ReportAllAmbiguity,
+                                addCompIons.Value,//possibly changed
+                                TotalPartitions,
+                                ScoreCutoff,
+                                NumberOfPeaksToKeepPerWindow,
+                                MinimumAllowedIntensityRatioToBasePeak,
+                                WindowWidthThomsons,
+                                NumberOfWindows,
+                                NormalizePeaksAccrossAllWindows,
+                                TrimMs1Peaks,
+                                TrimMsMsPeaks,
+                                UseDeltaScore,
+                                ProductMassTolerance,
+                                PrecursorMassTolerance,
+                                DeconvolutionMassTolerance,
+                                MaxThreadsToUsePerFile,
+                                new DigestionParams(
+                                    DigestionParams.Protease.Name,
+                                    DigestionParams.MaxMissedCleavages,
+                                    DigestionParams.MinPeptideLength,
+                                    DigestionParams.MaxPeptideLength,
+                                    DigestionParams.MaxModificationIsoforms,
+                                    DigestionParams.InitiatorMethionineBehavior,
+                                    DigestionParams.MaxModsForPeptide,
+                                    DigestionParams.SearchModeType,
+                                    terminus.Value //possibly changed
+                                ),
+                                ListOfModsVariable,
+                                ListOfModsFixed,
+                                QValueOutputFilter,
+                                AssumeOrphanPeaksAreZ1Fragments);
         }
 
-        #endregion Public Methods
+        public void SetCustomProductTypes()
+        {
+            DissociationTypeCollection.ProductsFromDissociationType[MassSpectrometry.DissociationType.Custom] = CustomIons;
+        }
     }
 }

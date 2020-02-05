@@ -1,137 +1,141 @@
 ﻿using EngineLayer;
-using IO.MzML;
 using IO.Mgf;
-
-#if NETFRAMEWORK
-
-using IO.Thermo;
-
-#else
-#endif
-
+using IO.MzML;
 using MassSpectrometry;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
+using ThermoRawFileReader;
 
 namespace TaskLayer
 {
     public class MyFileManager
     {
-        #region Public Fields
-
-        public enum ThermoMsFileReaderVersionCheck { DllsNotFound, IncorrectVersion, CorrectVersion };
-
-        #endregion Public Fields
-
-        #region Private Fields
-
-        private readonly bool disposeOfFileWhenDone;
-        private readonly Dictionary<string, MsDataFile> myMsDataFiles = new Dictionary<string, MsDataFile>();
-        private readonly object fileLoadingLock = new object();
-        private const string AssumedThermoMsFileReaderDllPath = @"C:\Program Files\Thermo\MSFileReader";
-        private const string DesiredFileIoVersion = "3.0";
-        private const string DesiredFregistryVersion = "3.0";
-        private const string DesiredXRawFileVersion = "3.0.29.0";
-
-        #endregion Private Fields
-
-        #region Public Constructors
+        private readonly bool DisposeOfFileWhenDone;
+        private readonly Dictionary<string, MsDataFile> MyMsDataFiles = new Dictionary<string, MsDataFile>();
+        private readonly object FileLoadingLock = new object();
 
         public MyFileManager(bool disposeOfFileWhenDone)
         {
-            this.disposeOfFileWhenDone = disposeOfFileWhenDone;
+            DisposeOfFileWhenDone = disposeOfFileWhenDone;
         }
-
-        #endregion Public Constructors
-
-        #region Public Events
 
         public static event EventHandler<StringEventArgs> WarnHandler;
 
-        #endregion Public Events
-
-        #region Public Methods
-
         public bool SeeIfOpen(string path)
         {
-            return (myMsDataFiles.ContainsKey(path) && myMsDataFiles[path] != null);
+            return (MyMsDataFiles.ContainsKey(path) && MyMsDataFiles[path] != null);
         }
 
-        public static ThermoMsFileReaderVersionCheck ValidateThermoMsFileReaderVersion()
+        public MsDataFile LoadFile(string origDataFile, CommonParameters commonParameters)
         {
-            string fileIoAssumedPath = Path.Combine(AssumedThermoMsFileReaderDllPath, "Fileio_x64.dll");
-            string fregistryAssumedPath = Path.Combine(AssumedThermoMsFileReaderDllPath, "fregistry_x64.dll");
-            string xRawFileAssumedPath = Path.Combine(AssumedThermoMsFileReaderDllPath, "XRawfile2_x64.dll");
+            FilteringParams filter = new FilteringParams(commonParameters.NumberOfPeaksToKeepPerWindow, commonParameters.MinimumAllowedIntensityRatioToBasePeak, commonParameters.WindowWidthThomsons, commonParameters.NumberOfWindows, commonParameters.NormalizePeaksAccrossAllWindows, commonParameters.TrimMs1Peaks, commonParameters.TrimMsMsPeaks);
 
-            if (File.Exists(fileIoAssumedPath) && File.Exists(fregistryAssumedPath) && File.Exists(xRawFileAssumedPath))
+            if (commonParameters.DissociationType == DissociationType.LowCID || commonParameters.ChildScanDissociationType == DissociationType.LowCID)
             {
-                string fileIoVersion = FileVersionInfo.GetVersionInfo(fileIoAssumedPath).FileVersion;
-                string fregistryVersion = FileVersionInfo.GetVersionInfo(fregistryAssumedPath).FileVersion;
-                string xRawFileVersion = FileVersionInfo.GetVersionInfo(xRawFileAssumedPath).FileVersion;
-
-                if (fileIoVersion.Equals(DesiredFileIoVersion) && fregistryVersion.Equals(DesiredFregistryVersion) && xRawFileVersion.Equals(DesiredXRawFileVersion))
-                {
-                    return ThermoMsFileReaderVersionCheck.CorrectVersion;
-                }
-                else
-                {
-                    return ThermoMsFileReaderVersionCheck.IncorrectVersion;
-                }
+                filter = null;
             }
 
-            return ThermoMsFileReaderVersionCheck.DllsNotFound;
-        }
-
-        #endregion Public Methods
-
-        #region Internal Methods
-
-        internal MsDataFile LoadFile(string origDataFile, int? topNpeaks, double? minRatio, bool trimMs1Peaks, bool trimMsMsPeaks)
-        {
-            FilteringParams filter = new FilteringParams(topNpeaks, minRatio, 1, trimMs1Peaks, trimMsMsPeaks);
-            if (myMsDataFiles.TryGetValue(origDataFile, out MsDataFile value) && value != null)
+            if (MyMsDataFiles.TryGetValue(origDataFile, out MsDataFile value) && value != null)
+            {
                 return value;
+            }
 
             // By now know that need to load this file!!!
-            lock (fileLoadingLock) // Lock because reading is sequential
+            lock (FileLoadingLock) // Lock because reading is sequential
             {
                 if (Path.GetExtension(origDataFile).Equals(".mzML", StringComparison.OrdinalIgnoreCase))
                 {
-                    myMsDataFiles[origDataFile] = Mzml.LoadAllStaticData(origDataFile, filter);
+                    MyMsDataFiles[origDataFile] = Mzml.LoadAllStaticData(origDataFile, filter, commonParameters.MaxThreadsToUsePerFile);
                 }
                 else if (Path.GetExtension(origDataFile).Equals(".mgf", StringComparison.OrdinalIgnoreCase))
                 {
-                    myMsDataFiles[origDataFile] = Mgf.LoadAllStaticData(origDataFile, filter);
+                    MyMsDataFiles[origDataFile] = Mgf.LoadAllStaticData(origDataFile, filter);
                 }
                 else
                 {
-#if NETFRAMEWORK
-                    myMsDataFiles[origDataFile] = ThermoStaticData.LoadAllStaticData(origDataFile, filter);
-#else
-                    Warn("No capability for reading " + origDataFile);
-#endif
+                    MyMsDataFiles[origDataFile] = ThermoRawFileReaderData.LoadAllStaticData(origDataFile, filter, commonParameters.MaxThreadsToUsePerFile);
                 }
-                return myMsDataFiles[origDataFile];
+
+                return MyMsDataFiles[origDataFile];
             }
         }
 
         internal void DoneWithFile(string origDataFile)
         {
-            if (disposeOfFileWhenDone)
-                myMsDataFiles[origDataFile] = null;
+            if (DisposeOfFileWhenDone)
+            {
+                MyMsDataFiles[origDataFile] = null;
+            }
         }
-
-        #endregion Internal Methods
-
-        #region Private Methods
 
         private void Warn(string v)
         {
             WarnHandler?.Invoke(this, new StringEventArgs(v, null));
         }
 
-        #endregion Private Methods
+        public static void CompressDirectory(DirectoryInfo directorySelected)
+        {
+            foreach (FileInfo fileToCompress in directorySelected.GetFiles())
+            {
+                CompressFile(fileToCompress);
+            }
+        }
+
+        public static void CompressFile(FileInfo fileToCompress)
+        {
+            using (FileStream originalFileStream = fileToCompress.OpenRead())
+            {
+                if ((File.GetAttributes(fileToCompress.FullName) &
+                   FileAttributes.Hidden) != FileAttributes.Hidden & fileToCompress.Extension != ".gz")
+                {
+                    using (FileStream compressedFileStream = File.Create(fileToCompress.FullName + ".gz"))
+                    {
+                        using (GZipStream compressionStream = new GZipStream(compressedFileStream,
+                           CompressionMode.Compress))
+                        {
+                            originalFileStream.CopyTo(compressionStream);
+                        }
+                    }
+                }
+            }
+
+            if (File.Exists(fileToCompress.FullName))
+            {
+                File.Delete(fileToCompress.FullName);
+            }
+        }
+
+        public static void DecompressDirectory(DirectoryInfo directorySelected)
+        {
+            foreach (FileInfo fileToDecompress in directorySelected.GetFiles())
+            {
+                DecompressFile(fileToDecompress);
+            }
+        }
+
+        public static void DecompressFile(FileInfo fileToDecompress)
+        {
+            using (FileStream originalFileStream = fileToDecompress.OpenRead())
+            {
+                string currentFileName = fileToDecompress.FullName;
+                string newFileName = currentFileName.Remove(currentFileName.Length - fileToDecompress.Extension.Length);
+
+                using (FileStream decompressedFileStream = File.Create(newFileName))
+                {
+                    using (GZipStream decompressionStream = new GZipStream(originalFileStream, CompressionMode.Decompress))
+                    {
+                        decompressionStream.CopyTo(decompressedFileStream);
+                        Console.WriteLine("Decompressed: {0}", fileToDecompress.Name);
+                    }
+                }
+            }
+
+            if (File.Exists(fileToDecompress.FullName))
+            {
+                File.Delete(fileToDecompress.FullName);
+            }
+        }
     }
 }
